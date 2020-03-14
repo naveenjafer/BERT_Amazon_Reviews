@@ -37,10 +37,7 @@ def trainFunc(net, loss_func, opti, train_loader, test_loader, config):
     for ep in range(config["epochs"]):
         for it, (seq, attn_masks, labels) in enumerate(train_loader):
             opti.zero_grad()
-            #seq, attn_masks, labels = seq.cuda(args.gpu), attn_masks.cuda(args.gpu), labels.cuda(args.gpu)
-            seq.to(config["device"])
-            attn_masks.to(config["device"])
-            labels.to(config["device"])
+            seq, attn_masks, labels = seq.to(device), attn_masks.to(device), labels.to(device)
 
             logits = net(seq, attn_masks)
             loss = loss_func(m(logits), labels)
@@ -74,10 +71,7 @@ def evaluate(net, loss_func, dataloader, config):
 
     with torch.no_grad():
         for seq, attn_masks, labels in dataloader:
-            #seq, attn_masks, labels = seq.cuda(args.gpu), attn_masks.cuda(args.gpu), labels.cuda(args.gpu)
-            seq.to(config["device"])
-            attn_masks.to(config["device"])
-            labels.to(config["device"])
+            seq, attn_masks, labels = seq.to(device), attn_masks.to(device), labels.to(device)
 
             logits = net(seq, attn_masks)
             mean_loss += loss_func(m(logits), labels)
