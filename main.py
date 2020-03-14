@@ -106,10 +106,15 @@ if __name__== "__main__":
     "threads" : 4,
     "batchSize" : 64,
     "validationFraction" : 0.0005,
-    "epochs" : 5
+    "epochs" : 5,
+    "forceCPU" : False
     }
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    if config["forceCPU"]:
+        device = torch.device("cpu")
+        
     config["device"] = device
 
     print('Loading BERT tokenizer...')
