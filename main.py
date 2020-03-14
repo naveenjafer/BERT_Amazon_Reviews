@@ -2,7 +2,6 @@ import pandas as pd
 import torch
 import torch.nn as nn
 from transformers import  BertModel, BertTokenizer
-from spacy.lang.en import English
 from torch.utils.data import DataLoader
 import torch.optim as optim
 import os
@@ -33,7 +32,7 @@ def get_accuracy(logits, labels):
     acc = (predictedClass == labels).float().mean()
     return acc
 
-def trainFunc(net, criterion, opti, train_loader, test_loader, config):
+def trainFunc(net, loss_func, opti, train_loader, test_loader, config):
     best_acc = 0
     for ep in range(config["epochs"]):
         for it, (seq, attn_masks, labels) in enumerate(train_loader):
@@ -114,7 +113,7 @@ if __name__== "__main__":
 
     if config["forceCPU"]:
         device = torch.device("cpu")
-        
+
     config["device"] = device
 
     print('Loading BERT tokenizer...')
