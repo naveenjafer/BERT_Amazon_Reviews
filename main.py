@@ -7,6 +7,7 @@ import torch.optim as optim
 import os
 import dataLoader
 import classifier
+import sys
 
 def read_and_shuffle(file):
     df = pd.read_csv(file, delimiter=',')
@@ -15,7 +16,7 @@ def read_and_shuffle(file):
     return df
 
 def get_train_and_val_split(df, splitRatio=0.8):
-    train=df.sample(frac=splitRatio,random_state=200)
+    train=df.sample(frac=splitRatio,random_state=201)
     val=df.drop(train.index)
     print("Number of Training Samples: ", len(train))
     print("Number of Validation Samples: ", len(val))
@@ -63,6 +64,10 @@ def trainFunc(net, loss_func, opti, train_loader, test_loader, config):
             best_acc = val_acc
             torch.save(net.state_dict(), os.path.join(config["outputFolder"], config["outputFileName"] + "_valTested_" + str(best_acc)))
 
+def saveEvalAndTrain(train, eval, config):
+    val.to_csv("AMAZON-DATASET/Validations.csv")
+    train.to_csv("AMAZON-DATASET/Train.csv")
+
 def evaluate(net, loss_func, dataloader, config):
     net.eval()
 
@@ -76,7 +81,7 @@ def evaluate(net, loss_func, dataloader, config):
             logits = net(seq, attn_masks)
             mean_loss += loss_func(m(logits), labels)
             mean_acc += get_accuracy(m(logits), labels)
-            print("Validation iteration", count+1)
+            print("Validating reviews ", count * config["batchSize"], " - ", (count+1) * config["batchSize"])
             count += 1
 
             '''
@@ -90,6 +95,9 @@ def evaluate(net, loss_func, dataloader, config):
     return mean_acc / count, mean_loss / count
 
 if __name__== "__main__":
+    arguments = sys.argv[1:]
+    trainOrEval = arguments[0]
+
     config = {
     "splitRatio" : 0.8,
     "maxLength" : 100,
@@ -118,6 +126,7 @@ if __name__== "__main__":
     df = read_and_shuffle("./AMAZON-DATASET/Reviews.csv")
 
     num_classes = df['Score'].nunique()
+    config["num_classes"] = num_classes
     print("Number of Target Output Classes:", num_classes)
     totalDatasetSize = len(df)
 
@@ -130,6 +139,13 @@ if __name__== "__main__":
 
     train, val = get_train_and_val_split(df, config["splitRatio"])
 
+    if trainOrEval == "eval":
+        try:
+            val = pd.read_csv("./AMAZON-DATASET/Validations.csv", delimiter=',')
+        except:
+            print("Could not find file Validations.csv in AMAZON-DATSET, run the training and then run the eval flag.")
+    if trainOrEval == "train":
+        saveEvalAndTrain(train, eval, config)
     # You can set the length to the true max length from the dataset, I have reduced it for the sake of memory and quicker training.
     #T = get_max_length(reviews)
     T = config["maxLength"]
@@ -157,4 +173,18 @@ if __name__== "__main__":
 
     m = nn.LogSoftmax(dim=1)
 
-    trainFunc(net, loss_func, opti, train_loader, val_loader, config)
+    if trainOrEval == "train":
+        trainFunc(net, loss_func, opti, train_loader, val_loader, config)
+
+    elif trainOrEval == "eval":
+        model = classifier.SentimentClassifier(5, device, freeze_bert = False)
+        try:
+            model.load_state_dict(torch.load(os.path.join(config["outputFolder"], config["outputFileName"]), map_location=config["device"]))
+            print("Loaded model at ", os.path.join(config["outputFolder"], config["outputFileName"]))
+        except:
+            print("Failed to load the model weights, please check if the file ", os.path.join(config["outputFolder"], config["outputFileName"]), "exisits and is not corrupt")
+        val_acc, val_loss = evaluate(model, loss_func, val_loader, config)
+        print("Accuracy: ",val_acc,"\nLoss: ", val_loss)
+
+    else:
+        print("Please give a command line argument of either 'train' or 'eval'. For example. python3 main.py eval\n Eval will only work once the first model from training is available.")
